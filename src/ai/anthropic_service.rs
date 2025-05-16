@@ -191,7 +191,7 @@ mod tests {
             provider: "anthropic".to_string(),
             system_prompt: "You are an AI programming assistant. You're helping the user with their code project.".to_string(),
             model_name: "claude-3-sonnet-20240229".to_string(),
-            api_key: "DUMMY_API_KEY ".to_string(),
+            api_key: "test-key".to_string(),
             temperature: 0.7,
             max_tokens: 1000,
         };
