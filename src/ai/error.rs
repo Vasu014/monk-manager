@@ -1,7 +1,5 @@
 use std::time::Duration;
 use thiserror::Error;
-use wiremock::matchers::{method, path};
-use wiremock::{Mock, MockServer, ResponseTemplate};
 
 #[derive(Debug, Error)]
 pub enum AIError {
@@ -62,6 +60,8 @@ impl From<serde_json::Error> for AIError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
 
     #[test]
     fn test_error_display() {

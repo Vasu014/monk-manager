@@ -1,17 +1,12 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use tokio::time::timeout;
 // use tracing::{debug, error, info}; // Commented out
-use anthropic::client::Client;
-use anthropic::config::AnthropicConfig;
-use anthropic::types::CompleteRequest;
 
 mod anthropic_service;
 mod error;
-
-pub use error::AIError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelConfig {
@@ -20,11 +15,19 @@ pub struct ModelConfig {
     pub api_key: String,
     pub temperature: f32,
     pub max_tokens: usize,
+    pub api_base_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Message {
+    pub role: String,
+    pub content: String,
 }
 
 #[async_trait]
 pub trait AIClient: Send + Sync {
     async fn explain(&self, code: &str, language: &str) -> Result<String>;
+    async fn chat(&self, messages: &[Message], project_context: Option<&str>) -> Result<String>;
 }
 
 pub struct AIService {
@@ -54,6 +57,14 @@ impl AIService {
             Err(_) => anyhow::bail!("AI request timed out after {:?}", timeout_duration),
         }
     }
+
+    pub async fn chat(&self, messages: &[Message], project_context: Option<&str>) -> Result<String> {
+        let timeout_duration = Duration::from_secs(60);
+        match timeout(timeout_duration, self.client.chat(messages, project_context)).await {
+            Ok(result) => result,
+            Err(_) => anyhow::bail!("AI chat request timed out after {:?}", timeout_duration),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -67,6 +78,7 @@ mod tests {
         #[async_trait]
         impl AIClient for AIClient {
             async fn explain(&self, code: &str, language: &str) -> Result<String>;
+            async fn chat(&self, messages: &[Message], project_context: Option<&str>) -> Result<String>;
         }
     }
 
@@ -78,6 +90,7 @@ mod tests {
             api_key: "test-key".to_string(),
             temperature: 0.7,
             max_tokens: 1000,
+            api_base_url: None,
         };
 
         let mut mock_client = MockAIClient::new();
@@ -109,6 +122,7 @@ mod tests {
             api_key: "test-key".to_string(),
             temperature: 0.7,
             max_tokens: 1000,
+            api_base_url: None,
         };
 
         let mut mock_client = MockAIClient::new();

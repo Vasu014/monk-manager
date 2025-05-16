@@ -4,7 +4,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error};
 
-use super::{AIClient, ModelConfig};
+use super::{AIClient, ModelConfig, Message as AIMessage};
 
 #[derive(Debug, Serialize)]
 struct Message {
@@ -18,6 +18,8 @@ struct Request {
     messages: Vec<Message>,
     max_tokens: usize,
     temperature: f32,
+    #[serde(rename = "system")]
+    system_prompt: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -38,7 +40,7 @@ pub struct AnthropicClient {
 impl AnthropicClient {
     pub fn new(config: ModelConfig) -> Result<Self> {
         let client = Client::builder()
-            .timeout(std::time::Duration::from_secs(30))
+            .timeout(std::time::Duration::from_secs(60))
             .build()
             .context("Failed to create HTTP client")?;
 
@@ -53,20 +55,27 @@ impl AnthropicClient {
             code
         )
     }
-}
 
-#[async_trait]
-impl AIClient for AnthropicClient {
-    async fn explain(&self, code: &str, language: &str) -> Result<String> {
-        let prompt = self.build_prompt(code, language);
-        debug!("Sending request to Anthropic API");
+    fn build_system_message(&self, project_context: Option<&str>) -> Message {
+        let system_content = match project_context {
+            Some(context) => format!(
+                "You are an AI programming assistant. You're helping the user with their code project. Project context: {}",
+                context
+            ),
+            None => "You are an AI programming assistant. You're helping the user with their code project.".to_string(),
+        };
+        
+        Message {
+            role: "assistant".to_string(),
+            content: system_content,
+        }
+    }
 
+    async fn send_request(&self, messages: Vec<Message>) -> Result<String> {
         let request = Request {
             model: self.config.model_name.clone(),
-            messages: vec![Message {
-                role: "user".to_string(),
-                content: prompt,
-            }],
+            system_prompt: "You are an AI programming assistant. You're helping the user with their code project.".to_string(),
+            messages,
             max_tokens: self.config.max_tokens,
             temperature: self.config.temperature,
         };
@@ -86,16 +95,52 @@ impl AIClient for AnthropicClient {
                 .text()
                 .await
                 .unwrap_or_else(|_| "Unknown error".to_string());
-            error!("Anthropic API error: {}", error);
             anyhow::bail!("Anthropic API error: {}", error);
         }
 
-        let response: Response = response
-            .json()
-            .await
-            .context("Failed to parse Anthropic API response")?;
+        let response_text = response.text().await?;
+        
+        let response: Response = match serde_json::from_str(&response_text) {
+            Ok(resp) => resp,
+            Err(e) => {
+                anyhow::bail!("Failed to parse Anthropic API response: {}", e)
+            }
+        };
+
+        if response.content.is_empty() {
+            anyhow::bail!("Empty content in Anthropic API response");
+        }
 
         Ok(response.content[0].text.clone())
+    }
+}
+
+#[async_trait]
+impl AIClient for AnthropicClient {
+    async fn explain(&self, code: &str, language: &str) -> Result<String> {
+        let prompt = self.build_prompt(code, language);
+        let messages = vec![
+            Message {
+                role: "user".to_string(),
+                content: prompt,
+            },
+        ];
+
+        self.send_request(messages).await
+    }
+
+    async fn chat(&self, messages: &[AIMessage], project_context: Option<&str>) -> Result<String> {
+        let mut anthropic_messages = vec![self.build_system_message(project_context)];
+        
+        // Convert AIMessage to Anthropic Message format
+        for message in messages {
+            anthropic_messages.push(Message {
+                role: message.role.clone(),
+                content: message.content.clone(),
+            });
+        }
+
+        self.send_request(anthropic_messages).await
     }
 }
 
@@ -144,8 +189,9 @@ mod tests {
         let mock_server = MockServer::start().await;
         let config = ModelConfig {
             provider: "anthropic".to_string(),
+            system_prompt: "You are an AI programming assistant. You're helping the user with their code project.".to_string(),
             model_name: "claude-3-sonnet-20240229".to_string(),
-            api_key: "test-key".to_string(),
+            api_key: "DUMMY_API_KEY ".to_string(),
             temperature: 0.7,
             max_tokens: 1000,
         };

@@ -1,4 +1,6 @@
-# CLI Interface Specification
+# CLI Interface Specification (Legacy)
+
+> **Note:** This command-based CLI interface is being replaced by the new interactive chat interface defined in [cli-2.md](cli-2.md). This document is maintained for reference purposes only.
 
 ## Overview
 This document outlines the command-line interface (CLI) design for `monk-manager`. It covers the general structure, global options, and initial setup flow.

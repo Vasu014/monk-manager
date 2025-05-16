@@ -1,8 +1,8 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use std::path::PathBuf;
 
 pub mod explain;
+pub mod interactive;
 
 pub use explain::ExplainArgs;
 
@@ -10,19 +10,20 @@ pub use explain::ExplainArgs;
 #[command(author, version, about, long_about = None)]
 pub struct Cli {
     #[command(subcommand)]
-    pub command: Commands,
+    pub command: Option<Commands>,
 }
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// Explain code using AI
+    /// [Legacy] Explain code using AI - now redirects to interactive mode
     Explain(ExplainArgs),
 }
 
+// This function is no longer used since we always start interactive mode
+#[deprecated(note = "All commands now redirect to interactive mode")]
 pub async fn execute(cli: Cli) -> Result<()> {
-    match cli.command {
-        Commands::Explain(args) => explain::execute(args).await,
-    }
+    // Always use interactive mode now
+    interactive::run_interactive_session().await
 }
 
 #[cfg(test)]
@@ -33,17 +34,24 @@ mod tests {
     fn test_cli_parse() {
         let args = vec!["monk", "explain", "src/main.rs"];
         let cli = Cli::parse_from(args);
-        assert!(matches!(cli.command, Commands::Explain(_)));
+        assert!(matches!(cli.command, Some(Commands::Explain(_))));
     }
 
     #[test]
     fn test_cli_parse_with_language() {
         let args = vec!["monk", "explain", "src/main.rs", "--language", "rust"];
         let cli = Cli::parse_from(args);
-        if let Commands::Explain(args) = cli.command {
+        if let Some(Commands::Explain(args)) = cli.command {
             assert_eq!(args.language, Some("rust".to_string()));
         } else {
             panic!("Expected Explain command");
         }
+    }
+
+    #[test]
+    fn test_cli_no_command() {
+        let args = vec!["monk"];
+        let cli = Cli::parse_from(args);
+        assert!(matches!(cli.command, None));
     }
 } 

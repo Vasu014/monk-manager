@@ -5,6 +5,7 @@ A high-performance CLI tool for AI-powered code explanation and documentation ge
 ## Features
 
 - 🤖 AI-powered code explanation using Claude
+- 💬 Interactive chat mode with your codebase
 - 📝 Multiple output formats (Markdown, Plain Text)
 - 🔍 Automatic language detection
 - ⚡ High-performance implementation in Rust
@@ -75,45 +76,32 @@ Environment variables can override configuration:
 
 ## Usage
 
-### Explain Code
+### Interactive Mode
+
+Monk Manager now always starts in interactive mode, which provides a chat-like interface for interacting with the AI about your code:
 
 ```bash
-# Basic usage
-monk explain src/main.rs
-
-# Specify language
-monk explain src/main.rs --language rust
-
-# Custom output format
-monk explain src/main.rs --format plain
-
-# Include context lines
-monk explain src/main.rs --context-lines 10
+# Launch in interactive mode (uses current directory as project root)
+monk-manager
 ```
 
-### Output Formats
+In interactive mode:
+- Type your messages and press Enter to send
+- Type `/help` to see available commands
+- Type `/exit` or `/quit` to exit
 
-#### Markdown
-```markdown
-# Code Explanation
+### Legacy Commands
 
-## File: src/main.rs
+Legacy command-based features have been replaced by the more flexible interactive interface:
 
-## Language: rust
-
-## Explanation
-
-[AI-generated explanation]
+```bash
+# These commands now redirect to interactive mode
+monk-manager explain src/main.rs
 ```
 
-#### Plain Text
-```
-File: src/main.rs
-Language: rust
+## Output Formats
 
-Explanation:
-[AI-generated explanation]
-```
+Responses from the AI in interactive mode are displayed as plain text in the terminal, with colorized formatting for readability.
 
 ## Development
 
@@ -186,8 +174,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Roadmap
 
+- [x] Interactive mode
 - [ ] Support for multiple AI providers
-- [ ] Interactive mode
 - [ ] Code review assistance
 - [ ] Documentation generation
 - [ ] Integration with IDEs

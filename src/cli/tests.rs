@@ -4,6 +4,7 @@ mod tests {
     use crate::config::Config;
     use mockall::predicate::*;
     use mockall::mock;
+    use clap::Parser;
 
     mock! {
         AIModel {
@@ -49,5 +50,33 @@ mod tests {
         assert_eq!("medium".parse::<DetailLevel>().unwrap(), DetailLevel::Medium);
         assert_eq!("detailed".parse::<DetailLevel>().unwrap(), DetailLevel::Detailed);
         assert!("invalid".parse::<DetailLevel>().is_err());
+    }
+
+    #[test]
+    fn test_explain_command_parsing() {
+        let args = vec!["monkexplain", "path/to/file.rs"];
+        let explain_args = explain::ExplainArgs::parse_from(args);
+        assert_eq!(explain_args.file, "path/to/file.rs");
+        assert_eq!(explain_args.language, None);
+    }
+
+    #[test]
+    fn test_explain_command_with_language() {
+        let args = vec![
+            "monkexplain",
+            "path/to/file.rs",
+            "--language",
+            "rust",
+        ];
+        let explain_args = explain::ExplainArgs::parse_from(args);
+        assert_eq!(explain_args.file, "path/to/file.rs");
+        assert_eq!(explain_args.language, Some("rust".to_string()));
+    }
+
+    #[test]
+    fn test_interactive_mode_is_default() {
+        let args = vec!["monk-manager"];
+        let cli = Cli::parse_from(args);
+        assert!(cli.command.is_none());
     }
 } 

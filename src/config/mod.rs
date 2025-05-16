@@ -159,9 +159,10 @@ impl Config {
             ai: ModelConfig {
                 provider: "anthropic".to_string(),
                 model_name: "claude-3-5-haiku-20241022".to_string(),
-                api_key: env::var("ANTHROPIC_API_KEY")?,
+                api_key: env::var("ANTHROPIC_API_KEY").unwrap_or_else(|_| "YOUR_ANTHROPIC_API_KEY_HERE".to_string()),
                 temperature: 0.7,
                 max_tokens: 1024,
+                api_base_url: None,
             },
             logging: LoggingConfig {
                 level: "info".to_string(),

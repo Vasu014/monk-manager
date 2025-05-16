@@ -9,7 +9,8 @@ Monk Manager is an AI-powered programming assistant that helps developers unders
 |---------------|-------------|
 | [Architecture](specs/architecture.md) | Overall system architecture and design |
 | [Tracing](specs/tracing.md) | Logging, metrics, and telemetry implementation |
-| [CLI Interface](specs/cli.md) | Command-line interface design and implementation |
+| [CLI Interface](specs/cli.md) | Command-based CLI interface (legacy) |
+| [Interactive CLI](specs/cli-2.md) | Primary interactive chat interface |
 | [Explain Command](specs/explain-command.md) | Implementation of the `monkexplain` command |
 | [Edit Command](specs/edit-command.md) | Implementation of the `monk edit` command for file modifications |
 | [AI Integration](specs/ai-integration.md) | AI model integration and interaction patterns |
