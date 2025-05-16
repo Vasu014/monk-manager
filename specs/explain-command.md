@@ -5,14 +5,25 @@ The `monkexplain` command provides AI-powered explanations of programming concep
 
 ## Command Syntax
 ```bash
-monk-manager explain [OPTIONS] <INPUT>
+monk-manager explain [OPTIONS] <INPUT_QUERY_OR_FILE_PATH>
 ```
+
+## Arguments and Options
+*   `<INPUT_QUERY_OR_FILE_PATH>`: (Required) This can be:
+    *   A textual query (e.g., "What is a closure in Rust?").
+    *   A path to a source code file (e.g., `src/main.rs`). If a file path is provided, it will be resolved relative to the repository home directory (see `specs/cli.md`). The content of the file will be used as the primary input for the explanation.
+*   `--language <LANGUAGE>` or `-l <LANGUAGE>`: (Optional) Specifies the programming language of the code snippet or file. If not provided, the CLI may attempt to auto-detect it.
+*   `--detail-level <LEVEL>`: (Optional) Specifies the desired level of detail for the explanation (e.g., `basic`, `medium`, `detailed`). Defaults to `medium`.
+*   `--format <FORMAT>`: (Optional) Specifies the output format (e.g., `text`, `markdown`, `json`). Defaults to `markdown`.
+*   `--target-symbol <SYMBOL_NAME>`: (Optional) If `<INPUT_QUERY_OR_FILE_PATH>` is a file, this option can be used to specify a particular function, struct, class, or variable within that file to focus the explanation on.
+*   `--lines <START_LINE>-<END_LINE>`: (Optional) If `<INPUT_QUERY_OR_FILE_PATH>` is a file, this option can specify a range of lines to focus the explanation on (e.g., `10-25`).
 
 ## Features
 
 ### 1. Input Processing
-- Text input handling
-- Code snippet parsing
+- Text query handling.
+- Source code file reading and parsing (paths relative to repository home).
+- Code snippet parsing (if directly provided as part of a text query).
 - Language detection
 - Context extraction
 
@@ -124,77 +135,25 @@ pub enum ExplainError {
 $ monk-manager explain "What is a closure in Rust?"
 ```
 
+### Explaining a File
+```bash
+$ monk-manager explain src/utils/my_module.rs
+```
+
+### Explaining a Specific Symbol in a File
+```bash
+$ monk-manager explain src/models.rs --target-symbol UserProfile
+```
+
+### Explaining a Line Range in a File
+```bash
+$ monk-manager explain src/algorithm.py --lines 50-75
+```
+
 ### With Options
 ```bash
-$ monk-manager explain --language rust --detail detailed "Explain async/await"
+$ monk-manager explain --language rust --detail-level detailed "Explain async/await"
 ```
 
 ### Output Example
-```markdown
-# Closures in Rust
-
-A closure in Rust is an anonymous function that can capture its environment...
-
-## Example
-```rust
-let add = |x, y| x + y;
-let result = add(2, 3); // 5
 ```
-
-## Key Features
-1. Environment capture
-2. Type inference
-3. Move semantics
-```
-
-## Testing
-
-### Unit Tests
-```rust
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_basic_explanation() {
-        // Test implementation
-    }
-
-    #[test]
-    fn test_detailed_explanation() {
-        // Test implementation
-    }
-}
-```
-
-### Integration Tests
-```rust
-#[tokio::test]
-async fn test_explain_command() {
-    // Test implementation
-}
-```
-
-## Performance Considerations
-
-### Caching
-- Cache common explanations
-- Cache model responses
-- Cache formatted output
-
-### Optimization
-- Parallel processing
-- Response streaming
-- Memory management
-
-## Security
-
-### Input Validation
-- Sanitize user input
-- Validate language
-- Check input length
-
-### Rate Limiting
-- Request throttling
-- Token usage limits
-- Concurrent request limits 

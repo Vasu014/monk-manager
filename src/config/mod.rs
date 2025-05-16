@@ -15,6 +15,9 @@ pub struct Config {
     pub logging: LoggingConfig,
     pub commands: CommandsConfig,
     pub security: SecurityConfig,
+    pub repository_home: Option<String>,
+    #[serde(skip)] // Don't serialize this path to the config file itself
+    pub config_file_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,7 +63,10 @@ impl Config {
         let config = config.apply_env_overrides()?;
         config.validate()?;
 
-        Ok(config)
+        let mut config_with_path = config;
+        config_with_path.config_file_path = Some(config_path);
+
+        Ok(config_with_path)
     }
 
     fn find_config_file() -> Result<PathBuf> {
@@ -96,7 +102,6 @@ impl Config {
             .join("monk-manager")
             .join("config.yaml");
         
-        Self::create_default_config(&default_path)?;
         Ok(default_path)
     }
 
@@ -176,6 +181,8 @@ impl Config {
             security: SecurityConfig {
                 secrets_file: None,
             },
+            repository_home: None,
+            config_file_path: Some(path.to_path_buf()),
         };
 
         if let Some(parent) = path.parent() {
@@ -184,6 +191,30 @@ impl Config {
         std::fs::write(path, serde_yaml::to_string(&config)?)?;
 
         Ok(config)
+    }
+
+    pub fn save(&self) -> Result<()> {
+        let path = self.config_file_path.as_ref().ok_or_else(|| anyhow::anyhow!("Config file path not set, cannot save."))?;
+        debug!("Saving configuration to: {:?}", path);
+
+        if let Some(parent) = path.parent() {
+            if !parent.exists() {
+                std::fs::create_dir_all(parent)
+                    .with_context(|| format!("Failed to create config directory: {:?}", parent))?;
+            }
+        }
+
+        let contents = match path.extension().and_then(|ext| ext.to_str()) {
+            Some("toml") => toml::to_string_pretty(self)?,
+            Some("json") => serde_json::to_string_pretty(self)?,
+            Some("yaml") | Some("yml") => serde_yaml::to_string(self)?,
+            _ => anyhow::bail!("Unsupported configuration file format for saving: {:?}", path.extension()),
+        };
+        
+        std::fs::write(path, contents)
+            .with_context(|| format!("Failed to write config file: {:?}", path))?;
+        
+        Ok(())
     }
 }
 
@@ -220,6 +251,8 @@ mod tests {
             security: SecurityConfig {
                 secrets_file: None,
             },
+            repository_home: None,
+            config_file_path: None,
         };
 
         assert!(config.validate().is_ok());
@@ -253,6 +286,8 @@ mod tests {
             security: SecurityConfig {
                 secrets_file: None,
             },
+            repository_home: None,
+            config_file_path: None,
         };
 
         assert!(config.validate().is_err());
@@ -260,20 +295,20 @@ mod tests {
 
     #[test]
     fn test_config_loading() {
-        let temp_file = NamedTempFile::new().unwrap();
+        // Ensure the temp file has a .yaml extension for Config::load() to work
+        let temp_file = NamedTempFile::with_suffix(".yaml").unwrap();
+        // The api_key in the string below will be loaded first.
         let config_str = r#"
             ai:
               provider: anthropic
               model_name: claude-3-5-haiku-20241022
-              api_key: test-key
+              api_key: "api_key_from_file_content"
               max_tokens: 1000
               temperature: 0.7
-
             logging:
               level: info
               format: pretty
               output: stderr
-
             commands:
               default_language: rust
               default_format: markdown
@@ -281,16 +316,55 @@ mod tests {
               explain:
                 max_context_lines: 10
                 language_detection: true
-
             security:
               secrets_file: null
+            repository_home: "/test/repo/home"
         "#;
-        std::fs::write(&temp_file, config_str).unwrap();
+        std::fs::write(temp_file.path(), config_str).unwrap();
 
-        let config = Config::load_yaml(temp_file.path()).unwrap();
+        // Unset any potentially interfering env var first, then set specifically for this test.
+        std::env::remove_var("ANTHROPIC_API_KEY"); 
+        let expected_api_key_from_env = "env_api_key_for_load_test_specific";
+        std::env::set_var("ANTHROPIC_API_KEY", expected_api_key_from_env);
+        std::env::set_var("MONK_CONFIG", temp_file.path().to_str().unwrap());
+
+        let config = Config::load().unwrap();
         assert_eq!(config.ai.model_name, "claude-3-5-haiku-20241022");
-        assert_eq!(config.ai.api_key, "test-key");
+        // This assertion should now pass as apply_env_overrides will use the env var set in this test.
+        assert_eq!(config.ai.api_key, expected_api_key_from_env); 
         assert_eq!(config.ai.max_tokens, 1000);
         assert_eq!(config.ai.temperature, 0.7);
+        assert_eq!(config.repository_home.as_deref(), Some("/test/repo/home"));
+        assert!(config.config_file_path.is_some(), "config_file_path should be set by Config::load()");
+        assert_eq!(config.config_file_path.as_ref().unwrap(), temp_file.path());
+
+        std::env::remove_var("MONK_CONFIG");
+        std::env::remove_var("ANTHROPIC_API_KEY");
+    }
+
+    #[test]
+    fn test_default_config_creation_and_save() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let config_path = temp_dir.path().join("monk-manager").join("config.yaml");
+
+        // Set required env var for default config creation
+        std::env::set_var("ANTHROPIC_API_KEY", "test_api_key_for_default_config");
+
+        // Create default config (implicitly tests population of repository_home=None and config_file_path)
+        let mut config = Config::create_default_config(&config_path)?;
+        assert!(config.repository_home.is_none());
+        assert_eq!(config.config_file_path.as_ref(), Some(&config_path));
+
+        // Modify and save
+        config.repository_home = Some("/new/repo/path".to_string());
+        config.save()?;
+
+        // Load and verify
+        let loaded_config = Config::load_yaml(&config_path)?; // Directly load to avoid find_config_file logic for this test
+        assert_eq!(loaded_config.repository_home.as_deref(), Some("/new/repo/path"));
+        
+        std::env::remove_var("ANTHROPIC_API_KEY"); // Clean up env var
+        temp_dir.close()?;
+        Ok(())
     }
 } 

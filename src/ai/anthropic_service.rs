@@ -20,12 +20,12 @@ struct Request {
     temperature: f32,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 struct Response {
     content: Vec<Content>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 struct Content {
     text: String,
 }
@@ -166,4 +166,4 @@ mod tests {
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("401"));
     }
-} 
+}

@@ -41,7 +41,7 @@ mod tests {
         let args = vec!["monk", "explain", "src/main.rs", "--language", "rust"];
         let cli = Cli::parse_from(args);
         if let Commands::Explain(args) = cli.command {
-            assert_eq!(args.language, "rust");
+            assert_eq!(args.language, Some("rust".to_string()));
         } else {
             panic!("Expected Explain command");
         }
